@@ -56,7 +56,7 @@ class DataStorage {
     explicit DataStorage(const std::string& db_path);
 
     rocksdb::Status flushNextColumn();
-    rocksdb::Status closeDb();
+    rocksdb::Status closeDatabase();
 
    private:
     [[nodiscard]] std::unique_ptr<rocksdb::Transaction> beginTransaction()

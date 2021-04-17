@@ -68,7 +68,7 @@ type ArbCoreLookup interface {
 	// from the original machine
 	GetExecutionCursor(totalGasUsed *big.Int) (ExecutionCursor, error)
 
-	// Advance executes as much as it can without going over maxGas or
+	// AdvanceExecutionCursor executes as much as it can without going over maxGas or
 	// optionally until it reaches or goes over maxGas
 	AdvanceExecutionCursor(executionCursor ExecutionCursor, maxGas *big.Int, goOverGas bool) error
 
@@ -88,6 +88,7 @@ func DeliverMessagesAndWait(db ArbCoreInbox, messages []inbox.InboxMessage, prev
 	}
 	status, err := waitForMessages(db)
 	if err != nil {
+		// Fatal error
 		return false, err
 	}
 	if status == MessagesSuccess {

@@ -1,6 +1,7 @@
 package nodehealth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -32,7 +33,7 @@ func (config *configTestStruct) newTestConfig() {
 	const passMessage = "Passed"
 	const startUpSleepTime = 5 * time.Second
 	const timeDelayTests = 11 * time.Second
-	const nodehealthAddress = "http://127.0.0.1:8080"
+	const nodehealthAddress = "http://127.0.0.1:9999"
 	const inboxReaderName = "InboxReader"
 
 	config.successfulStatus = successfulStatus
@@ -230,8 +231,10 @@ func TestNodeHealth(t *testing.T) {
 	go startTestingServerFail()
 	go startTestingServerPass()
 
+	ctx := context.Background()
+
 	healthChan := make(chan Log, config.largeBufferSize)
-	go NodeHealthCheck(healthChan)
+	StartHealthCheck(ctx, healthChan)
 
 	//Test startup configuration delay
 	err := startUpTest(&config)

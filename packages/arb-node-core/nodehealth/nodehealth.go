@@ -1,7 +1,9 @@
 package nodehealth
 
 import (
+	"context"
 	"errors"
+	"github.com/rs/zerolog/log"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -126,8 +128,14 @@ func updateConfig(config *configStruct, logMessage Log) {
 	}
 }
 
-func logger(config *configStruct, state *healthState, logMsgChan <-chan Log) {
+func logger(ctx context.Context, config *configStruct, state *healthState, logMsgChan <-chan Log) {
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		//Read log structure from channel
 		logMessage := <-logMsgChan
 		//Check if a configuration message has been sent
@@ -152,7 +160,7 @@ func newConfig() *configStruct {
 	const loopDelayTimer = 1 * time.Second
 	const defaultHealthCheckPort = "8080"
 
-	config.healthcheckRPC = "0.0.0.0:8080"
+	config.healthcheckRPC = "0.0.0.0:9123"
 	config.openethereumHealthcheckRPCPort = defaultHealthCheckPort
 	config.primaryHealthcheckRPCPort = defaultHealthCheckPort
 	config.pollingRate = defaultPollingRate
@@ -211,7 +219,7 @@ func checkInboxReader(config *configStruct, state *healthState) healthcheck.Chec
 		defer state.mu.Unlock()
 
 		if state.inboxReader.loadingDatabase == true {
-			return errors.New("Loading database snapshot")
+			return errors.New("loading database snapshot")
 		}
 
 		//Calculate out the block difference
@@ -257,7 +265,7 @@ func waitConfig(config *configStruct) {
 }
 
 //Start the healthcheck for OpenEthereum
-func startHealthCheck(config *configStruct, state *healthState) error {
+func startHealthCheck(config *configStruct, state *healthState) {
 	//Allocate storage for the aSync calls
 
 	//Create the main healthcheck handler
@@ -283,20 +291,24 @@ func startHealthCheck(config *configStruct, state *healthState) error {
 
 	//Create the HTTP server and start a watchdog to monitor its return codes
 	err := http.ListenAndServe(config.healthcheckRPC, httpMux)
-	return err
+	if err != nil {
+		log.Error().Err(err).Msg("healthcheck server failed")
+	}
 }
 
-// NodeHealthCheck Create a node healthcheck that listens on the given channel
-func NodeHealthCheck(logMsgChan <-chan Log) error {
+// StartHealthCheck Create a node healthcheck that listens on the given channel
+func StartHealthCheck(ctx context.Context, logMsgChan <-chan Log) {
 	//Create the configuration struct
 	state := newHealthState()
 
 	//Load the default configuration
 	config := newConfig()
 
-	go logger(config, state, logMsgChan)
+	go func() {
+		logger(ctx, config, state, logMsgChan)
+	}()
 
-	err := startHealthCheck(config, state)
-
-	return err
+	go func() {
+		startHealthCheck(config, state)
+	}()
 }

@@ -125,11 +125,17 @@ rocksdb::Status DataStorage::flushNextColumn() {
     return txn_db->Flush(flush_options, column_handles[next_column_to_flush]);
 }
 
-rocksdb::Status DataStorage::closeDb() {
+rocksdb::Status DataStorage::closeDatabase() {
     column_handles.clear();
     if (txn_db) {
         auto s = txn_db->Close();
         txn_db.reset();
+
+        if (s.IsNotSupported()) {
+            // Cleanup is taken care of in destructor
+            return rocksdb::Status::OK();
+        }
+
         return s;
     }
 

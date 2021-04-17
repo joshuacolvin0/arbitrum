@@ -142,6 +142,7 @@ void ArbCore::abortThread() {
         core_thread->join();
         core_thread = nullptr;
     }
+    data_storage->closeDatabase();
     arbcore_abort = false;
 }
 
@@ -904,6 +905,9 @@ void ArbCore::operator()() {
     }
 
     // Error occurred, make sure machine stops cleanly
+    std::cerr << "Error: ArbCore main thread has stopped" << std::endl;
+    message_data_status = MESSAGES_ERROR;
+    machine_error = true;
     machine->abortMachine();
 }
 

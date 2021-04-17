@@ -45,7 +45,7 @@ bool ArbStorage::initialized() const {
 
 bool ArbStorage::closeArbStorage() {
     arb_core->abortThread();
-    auto status = datastorage->closeDb();
+    auto status = datastorage->closeDatabase();
     if (!status.ok()) {
         std::cerr << "error closing database: " << status.ToString()
                   << std::endl;

@@ -50,6 +50,12 @@ func (ir *InboxReader) Start(parentCtx context.Context) {
 			ir.completed <- true
 		}()
 		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			err := ir.getMessages(ctx)
 			if err == nil {
 				break

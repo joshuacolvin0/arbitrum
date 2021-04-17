@@ -23,6 +23,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"time"
 
@@ -68,14 +69,16 @@ func main() {
 	const largeChannelBuffer = 200
 	healthChan := make(chan nodehealth.Log, largeChannelBuffer)
 
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
 	go func() {
-		err := nodehealth.NodeHealthCheck(healthChan)
-		if err != nil {
-			log.Error().Err(err).Msg("healthcheck server failed")
-		}
+		<-c
+		cancelFunc()
 	}()
 
-	ctx := context.Background()
+	nodehealth.StartHealthCheck(ctx, healthChan)
+
 	fs := flag.NewFlagSet("", flag.ContinueOnError)
 	walletArgs := cmdhelp.AddWalletFlags(fs)
 	rpcVars := utils2.AddRPCFlags(fs)

@@ -27,6 +27,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"path"
 	"time"
 
@@ -70,15 +71,19 @@ func main() {
 	// Print line number that log was created on
 	logger = log.With().Caller().Stack().Str("component", "arb-validator").Logger()
 
+	ctx, cancelFunc := context.WithCancel(context.Background())
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		cancelFunc()
+	}()
+
 	const largeChannelBuffer = 200
 	healthChan := make(chan nodehealth.Log, largeChannelBuffer)
 
-	go func() {
-		err := nodehealth.NodeHealthCheck(healthChan)
-		if err != nil {
-			log.Error().Err(err).Msg("healthcheck server failed")
-		}
-	}()
+	nodehealth.StartHealthCheck(ctx, healthChan)
 
 	if len(os.Args) < 2 {
 		usageStr := "Usage: arb-validator [folder] [RPC URL] [rollup address] [validator utils address] [strategy] " + cmdhelp.WalletArgsString
@@ -185,8 +190,6 @@ func main() {
 		validatorAddress = ethcommon.HexToAddress(chainState.ValidatorWallet)
 	}
 
-	ctx := context.Background()
-
 	storage, err := cmachine.NewArbStorage(path.Join(folder, "arbStorage"))
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Error creating ArbStorage")
@@ -206,6 +209,7 @@ func main() {
 	if !started {
 		logger.Fatal().Msg("Error starting ArbCore thread")
 	}
+	defer arbCore.StopThread()
 
 	valAuth, err := ethbridge.NewTransactAuth(ctx, client, auth)
 	if err != nil {
